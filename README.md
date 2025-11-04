@@ -1,33 +1,60 @@
-# Add layers
+# Filtrar e Baixar
 
-This widget demonstrates how to add a layer to a map programmatically. Step-by-step instructions for building this widget can be found in the [ArcGIS for Developers Tutorials](https://developers.arcgis.com/labs/experiencebuilder/get-map-coordinates/).
+Este widget carrega automaticamente a camada de Feature Service de alertas regional lapa e permite pesquisar, filtrar e dar zoom em polígonos específicos através da coluna "idea".
 
-## How to use the sample
+## Como usar
 
-Clone the [sample repo](https://github.com/esri/arcgis-experience-builder-sdk-resources) and copy this widget's folder (within `widgets`) to the `client/your-extensions/widgets` folder of your Experience Builder installation.
+1. Adicione o widget à sua experiência no Experience Builder
+2. Configure o widget para usar um widget de mapa
+3. A camada será carregada automaticamente quando o mapa estiver disponível
+4. Digite um número na coluna "idea" no campo de pesquisa
+5. Clique em "Filtrar e Zoom" para aplicar o filtro e dar zoom no polígono correspondente
+6. Use o botão "Limpar Filtro" para remover o filtro e visualizar todos os polígonos novamente
 
-## How it works
+## Como funciona
 
-Within `widget.tsx`, a reference to the Map object is acquired using the `JimuMapViewComponent` module. That reference is used in the `formSubmit` function when a `FeatureLayer` is created based on the layer URL and added to the map via the `jimuMapView`.
+O widget utiliza a URL fixa da camada:
+- `https://meioambiente.sistemas.mpba.mp.br/server/rest/services/Hosted/alertas_regional_lapa/FeatureServer`
 
-```js
-// First create the Feature Layer from the URL that is in the box.
-const layer = new this.FeatureLayer({
-  url: this.state.featureServiceUrlInput,
-});
+### Carregamento automático da camada
 
-// Add the layer to the map (accessed through the Experience Builder Data Source)
-this.state.jimuMapView.view.map.add(layer);
+Quando o componente detecta que o mapa está disponível, ele automaticamente:
+1. Carrega os módulos necessários da ArcGIS API for JavaScript
+2. Cria uma FeatureLayer com a URL fixa
+3. Adiciona a camada ao mapa
+
+```tsx
+// Carrega a camada automaticamente quando o mapa está disponível
+loadFeatureLayer = () => {
+  const layer = new this.FeatureLayer({
+    url: this.FEATURE_SERVICE_URL
+  })
+  this.state.jimuMapView.view.map.add(layer)
+}
 ```
 
-In this sample, the ArcGIS API for JavaScript modules are loaded asynchronously (also known as "lazy-loading"), via the `jimu-arcgis/loadArcGISJSAPIModules` module:
+### Pesquisa e filtro
 
-```js
-// Lazy-loading (only load if/when needed) the ArcGIS API for JavaScript modules
-// that we need - only once the "Add Layer" button is pressed.
-loadArcGISJSAPIModules([
-  "esri/layers/FeatureLayer",
-  "esri/geometry/SpatialReference",
-]).then((modules) => {
-  [this.FeatureLayer, this.SpatialReference] = modules;
+O widget permite pesquisar polígonos pela coluna "idea":
+- Executa uma query na camada para encontrar o polígono correspondente
+- Aplica um filtro (definitionExpression) para mostrar apenas o polígono encontrado
+- Faz zoom automático no polígono com nível de zoom 15
+
+```tsx
+// Pesquisa e filtra o polígono
+const query = layer.createQuery()
+query.where = `idea = '${escapedValue}' OR idea = ${escapedValue}`
+layer.queryFeatures(query).then((results) => {
+  layer.definitionExpression = `idea = '${escapedValue}' OR idea = ${escapedValue}`
+  this.state.jimuMapView.view.goTo({
+    target: results.features[0].geometry,
+    zoom: 15
+  })
+})
 ```
+
+## Requisitos
+
+- Experience Builder 1.18.0 ou superior
+- Um widget de mapa configurado na experiência
+- Acesso à camada de Feature Service especificada

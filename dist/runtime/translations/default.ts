@@ -1,7 +1,12 @@
 export default {
-  _widgetLabel: 'Add Layers',
-  addLayer: 'Add Layer',
-  featureServiceUrl: 'Feature Service URL',
+  _widgetLabel: 'Filtrar e Baixar',
+  addLayer: 'Adicionar Camada',
+  featureServiceUrl: 'URL do Feature Service',
   instructions:
-    'Copie a FeatureService Layer URL here to add it to the map.'
+    'Digite um número na coluna "idea" para filtrar e dar zoom no polígono correspondente.',
+  searchIdea: 'Pesquisar por número (idea)',
+  filterAndZoom: 'Filtrar',
+  clearFilter: 'Limpar Filtro',
+  loading: 'Carregando...',
+  layerLoaded: 'Camada carregada com sucesso!'
 }
