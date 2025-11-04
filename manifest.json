@@ -1,6 +1,6 @@
 {
   "name": "filtrar-e-gerar-relatorio",
-  "label": "Filtrar e Baixar Relatório",
+  "label": "Filtrar e Gerar Relatório",
   "type": "widget",
   "version": "1.18.0",
   "exbVersion": "1.18.0",
