@@ -58,3 +58,64 @@ layer.queryFeatures(query).then((results) => {
 - Experience Builder 1.18.0 ou superior
 - Um widget de mapa configurado na experiência
 - Acesso à camada de Feature Service especificada
+
+## Deploy no Portal do Experience Builder
+
+### Opção 1: Upload via ZIP (Recomendado)
+
+1. **Crie o pacote ZIP:**
+   ```powershell
+   .\package-widget.ps1
+   ```
+   Isso criará o arquivo `filtrar-e-baixar.zip`
+
+2. **Faça upload no Portal:**
+   - Acesse o Portal do Experience Builder como Administrador
+   - Navegue até **Widgets** > **Custom Widgets**
+   - Clique em **Add Widget** ou **Upload Widget**
+   - Selecione o arquivo `filtrar-e-baixar.zip`
+   - Aguarde o processamento e validação
+
+3. **Use o widget:**
+   - No Experience Builder, vá em **Insert** > **Widget**
+   - Procure por "Filtrar e Baixar" na lista de widgets
+   - Arraste para a experiência
+
+### Opção 2: Deploy via GitHub
+
+1. **Configure o repositório no Portal:**
+   - Acesse o Portal do Experience Builder como Administrador
+   - Navegue até **Widgets** > **Custom Widgets**
+   - Clique em **Add from GitHub** (se disponível)
+   - Informe a URL do repositório: `https://github.com/lorenalferraz/filtrar.git`
+   - Selecione o branch (geralmente `main`)
+   - O Portal irá baixar e compilar automaticamente
+
+2. **Validação:**
+   - O Portal validará o `manifest.json` e os arquivos necessários
+   - Se tudo estiver correto, o widget estará disponível
+
+### Estrutura do Widget
+
+O widget deve conter os seguintes arquivos:
+```
+filtrar-e-baixar/
+├── manifest.json          # Metadados do widget (obrigatório)
+├── config.json            # Configuração padrão
+├── icon.svg               # Ícone do widget
+├── dist/                  # Arquivos compilados
+│   ├── runtime/
+│   └── setting/
+└── src/                   # Código fonte
+    ├── config.ts
+    ├── runtime/
+    └── setting/
+```
+
+### Troubleshooting
+
+Se o widget não aparecer após o deploy:
+- Verifique se o `manifest.json` está correto
+- Confirme que a versão do Experience Builder é compatível (1.18.0+)
+- Verifique os logs do Portal em caso de erro
+- Certifique-se de que todos os arquivos em `dist/` estão presentes
