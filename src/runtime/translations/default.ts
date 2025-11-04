@@ -1,5 +1,5 @@
 export default {
-  _widgetLabel: 'Filtrar e Baixar',
+  _widgetLabel: 'Filtrar e Gerar Relatório',
   addLayer: 'Adicionar Camada',
   featureServiceUrl: 'URL do Feature Service',
   instructions:
