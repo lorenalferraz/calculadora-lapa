@@ -91,7 +91,12 @@ layer.queryFeatures(query).then((results) => {
    - Selecione o branch (geralmente `main`)
    - O Portal irá baixar e compilar automaticamente
 
-2. **Validação:**
+2. **Usando GitHub Pages (URL alternativa):**
+   - Após configurar GitHub Pages (veja `GITHUB_PAGES_SETUP.md`)
+   - Você pode usar a URL: `https://lorenalferraz.github.io/filtrar/manifest.json`
+   - Mas o Portal ainda precisará clonar o repositório completo para ter acesso a todos os arquivos
+
+3. **Validação:**
    - O Portal validará o `manifest.json` e os arquivos necessários
    - Se tudo estiver correto, o widget estará disponível
 
