@@ -160,7 +160,10 @@ module.exports = __WEBPACK_EXTERNAL_MODULE_jimu_core__;
 /******/ 		// This function allow to reference async chunks
 /******/ 		__webpack_require__.u = (chunkId) => {
 /******/ 			// return url for filenames not based on template
-/******/ 			if (chunkId === "vendors-node_modules_jszip_dist_jszip_min_js") return "widgets/chunks/vendors-node_modules_jszip_dist_jszip_min_js.js";
+/******/ 			if (chunkId === "vendors-node_modules_jszip_dist_jszip_min_js") {
+/******/ 				// Caminho relativo ao widget (o baseUrl já é adicionado pelo webpack)
+/******/ 				return "widgets/calculadora-lapa/dist/chunks/vendors-node_modules_jszip_dist_jszip_min_js.js";
+/******/ 			}
 /******/ 			// return url for filenames based on template
 /******/ 			return undefined;
 /******/ 		};
