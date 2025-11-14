@@ -1,7 +1,12 @@
 export default {
-  _widgetLabel: 'Add Layers',
-  addLayer: 'Add Layer',
-  featureServiceUrl: 'Feature Service URL',
-  instructions:
-    'Copie a FeatureService Layer URL here to add it to the map.'
+  _widgetLabel: 'Calculadora de Compensação',
+  title: 'Calculadora de Compensação',
+  quantidadeIDEA: 'Quantidade de IDEA\'s a analisar:',
+  areaPropostaShapefile: 'Área Proposta (shapefile ZIP):',
+  areaPropostaDesenho: 'Área Proposta (Desenho no mapa):',
+  iniciarDesenho: 'Iniciar Desenho',
+  executarAnalise: 'Executar Análise',
+  limparAnalise: 'Limpar Análise',
+  baixarRelatorio: 'Baixar Relatório',
+  loading: 'Carregando...'
 }

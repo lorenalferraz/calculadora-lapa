@@ -1,11 +1,11 @@
 {
-  "name": "add-layers",
-  "label": "Add Layers",
+  "name": "calculadora-lapa",
+  "label": "Calculadora Lapa",
   "type": "widget",
-  "version": "1.18.0",
+  "version": "1.19.0",
   "exbVersion": "1.18.0",
   "author": "Esri R&D Center Beijing",
-  "description": "This widget demonstrates how to add a layer to a map programmatically.",
+  "description": "Widget de Calculadora de Compensação que permite analisar múltiplos IDEA, fazer upload de shapefile ou desenhar área no mapa, e gera relatórios de análise de compensação usando geoprocessamento.",
   "copyright": "",
   "license": "http://www.apache.org/licenses/LICENSE-2.0",
   "properties": {},
@@ -13,7 +13,7 @@
     "en"
   ],
   "defaultSize": {
-    "width": 400,
-    "height": 200
+    "width": 450,
+    "height": 600
   }
 }
