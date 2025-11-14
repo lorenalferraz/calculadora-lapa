@@ -89,7 +89,7 @@ IState
   readonly GP_TASK_NAME = 'Simular Área de Compensação'
   
   // Token fornecido para autenticação
-  readonly GP_TOKEN = '_zND49dKhvn59tDT4Hq4894KUtPiSCFk27JNLfJz-uxvIunYhRiWx5XrXB7H-EjBcdFcGqmdqraWlLgXFPgwP0TTwokhKAMLaaqeu15TDGOkmlWtatqLsc1Z0xcqoDLg'
+  readonly GP_TOKEN = '_zND49dKhvn59tDT4Hq480F8IoVNvwFrgpJRWjyHRBGr8bYaKL_YyzRAy8fWCF-vKaBvjXhH2FuL6OQ0tSffAHebaQBFMN1CpOovsy8fz7U7o9BAvHRXTxi-p6QgvQqB'
   
   // Client Secret para autenticação OAuth2 (quando necessário renovar token)
   readonly CLIENT_SECRET = 'f8c423423aa7446b8a17b30143f9b08a'
