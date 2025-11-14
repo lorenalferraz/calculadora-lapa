@@ -1044,20 +1044,54 @@ IState
     }
   }
 
-  // Função auxiliar para obter token via OAuth2 usando client secret (quando necessário)
-  // NOTA: Esta função pode ser usada se o token fornecido expirar e precisarmos renovar
+  // Função auxiliar para obter token via OAuth2 usando client secret (renovação automática)
+  // Esta função gera um novo token automaticamente quando necessário, com validade de 1 ano
   private async getTokenViaOAuth2(): Promise<string | null> {
     try {
       // URL do servidor ArcGIS para obter token
       const serverUrl = 'https://meioambiente.sistemas.mpba.mp.br/server'
       const tokenUrl = `${serverUrl}/tokens/generateToken`
       
-      // Para usar client secret, geralmente precisamos do client ID também
-      // Como não temos o client ID, vamos tentar usar o token fornecido diretamente
-      // Esta função está aqui caso seja necessário implementar renovação de token no futuro
+      // Para gerar token com client secret
+      const params = new URLSearchParams()
+      params.append('f', 'json')
+      params.append('client', 'referer')
+      params.append('referer', window.location.origin)
+      params.append('expiration', '525600') // 1 ano (máximo permitido)
       
-      console.log('Função de renovação de token via OAuth2 disponível (client secret configurado)')
-      return null // Retorna null para usar o token fornecido por padrão
+      if (this.CLIENT_SECRET) {
+        params.append('client_secret', this.CLIENT_SECRET)
+      }
+      
+      console.log('Tentando gerar token via OAuth2...')
+      const response = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: params.toString()
+      })
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.warn('Erro ao gerar token via OAuth2:', errorText)
+        return null
+      }
+      
+      const result = await response.json()
+      
+      if (result.error) {
+        console.warn('Erro na resposta do token:', result.error)
+        return null
+      }
+      
+      if (result.token) {
+        console.log('✓ Token gerado com sucesso via OAuth2')
+        console.log('Token expira em:', result.expires ? new Date(result.expires).toLocaleString() : 'Não especificado')
+        return result.token
+      }
+      
+      return null
     } catch (error) {
       console.error('Erro ao tentar obter token via OAuth2:', error)
       return null
@@ -1149,15 +1183,18 @@ IState
         console.warn('Continuando sem token - pode causar erro de autenticação')
       }
       
-      // Opção de fallback: SEMPRE usa o token fornecido (já está autorizado)
-      // O IdentityManager pode não funcionar em alguns casos, então usamos o token fornecido diretamente
+      // Se não obteve token via IdentityManager, tenta gerar via OAuth2
       if (!token) {
-        console.warn('Token não obtido via IdentityManager. Usando token fornecido...')
+        console.warn('Token não obtido via IdentityManager. Tentando gerar via OAuth2...')
+        token = await this.getTokenViaOAuth2()
+      }
+      
+      // Fallback final: usa o token fornecido apenas se OAuth2 também falhar
+      if (!token) {
+        console.warn('Token não obtido via OAuth2. Usando token fornecido como fallback...')
         token = this.GP_TOKEN
       } else {
-        // Mesmo se obteve token via IdentityManager, vamos usar o token fornecido para garantir
-        console.log('Token obtido via IdentityManager, mas usando token fornecido para garantir autenticação')
-        token = this.GP_TOKEN
+        console.log('✓ Token obtido automaticamente (IdentityManager ou OAuth2)')
       }
       
       if (!token) {
@@ -2206,164 +2243,166 @@ IState
 
   render () {
     const style = css`
-      .widget-container {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        padding: 8px;
-      }
-      .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-      .form-group label {
-        font-weight: 500;
-        font-size: 14px;
-        color: #212121;
-      }
-      input[type="number"],
-      input[type="text"],
-      input[type="file"] {
+      &.widget-calculadora-lapa {
+        .widget-container {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          padding: 8px;
+        }
+        .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .form-group label {
+          font-weight: 500;
+          font-size: 14px;
+          color: #212121;
+        }
+        input[type="number"],
+        input[type="text"],
+        input[type="file"] {
           padding: 8px;
           border: 1px solid #ccc;
           border-radius: 20px;
-        font-size: 14px;
-        background-color: white;
-        color: #212121;
-      }
-      input[type="number"] {
-        width: 80px;
-      }
-      input[type="file"] {
-        padding: 6px 8px;
-      }
-      .idea-inputs {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        margin-top: 8px;
-      }
-      .idea-input-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .idea-input-item label {
-        min-width: 80px;
-        font-size: 13px;
-        color: #212121;
-      }
-      .idea-input-item input {
-        flex: 1;
+          font-size: 14px;
+          background-color: white;
+          color: #212121;
+        }
+        input[type="number"] {
+          width: 80px;
+        }
+        input[type="file"] {
+          padding: 6px 8px;
+        }
+        .idea-inputs {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          margin-top: 8px;
+        }
+        .idea-input-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .idea-input-item label {
+          min-width: 80px;
+          font-size: 13px;
+          color: #212121;
+        }
+        .idea-input-item input {
+          flex: 1;
         }
         button {
           padding: 8px 16px;
           border: none;
           border-radius: 20px;
-        font-size: 14px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        font-weight: 500;
-        &:disabled {
-          background-color: #e0e0e0;
-          color: #9e9e9e;
-          cursor: not-allowed;
-          opacity: 1;
+          font-size: 14px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-weight: 500;
+          &:disabled {
+            background-color: #e0e0e0;
+            color: #9e9e9e;
+            cursor: not-allowed;
+            opacity: 1;
+          }
         }
-      }
-      .btn-primary {
+        .btn-primary {
           background-color: #266640;
           color: white;
-        &:hover:not(:disabled) {
+          &:hover:not(:disabled) {
             background-color: #1e4f32;
           }
           &:disabled {
-          background-color: #e0e0e0;
-          color: #9e9e9e;
+            background-color: #e0e0e0;
+            color: #9e9e9e;
           }
         }
-      .btn-secondary {
-        background-color: #266640;
-        color: white;
-        &:hover:not(:disabled) {
-          background-color: #1e4f32;
+        .btn-secondary {
+          background-color: #266640;
+          color: white;
+          &:hover:not(:disabled) {
+            background-color: #1e4f32;
+          }
+          &:disabled {
+            background-color: #e0e0e0;
+            color: #9e9e9e;
+          }
         }
-        &:disabled {
+        .btn-success {
           background-color: #e0e0e0;
-          color: #9e9e9e;
+          color: #424242;
+          &:hover:not(:disabled) {
+            background-color: #bdbdbd;
+            color: #212121;
+          }
+          &:disabled {
+            background-color: #e0e0e0;
+            color: #9e9e9e;
+          }
         }
-      }
-      .btn-success {
-        background-color: #e0e0e0;
-        color: #424242;
-        &:hover:not(:disabled) {
-          background-color: #bdbdbd;
-          color: #212121;
-        }
-        &:disabled {
+        .btn-danger {
           background-color: #e0e0e0;
-          color: #9e9e9e;
+          color: #424242;
+          &:hover:not(:disabled) {
+            background-color: #bdbdbd;
+            color: #212121;
+          }
+          &:disabled {
+            background-color: #e0e0e0;
+            color: #9e9e9e;
+          }
         }
-      }
-      .btn-danger {
-        background-color: #e0e0e0;
-        color: #424242;
-        &:hover:not(:disabled) {
-          background-color: #bdbdbd;
-          color: #212121;
+        .button-group {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
         }
-        &:disabled {
-          background-color: #e0e0e0;
-          color: #9e9e9e;
+        .summary-box {
+          padding: 12px;
+          border-radius: 20px;
+          margin-top: 12px;
+          font-size: 14px;
         }
-      }
-      .button-group {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-      .summary-box {
-        padding: 12px;
-        border-radius: 20px;
-        margin-top: 12px;
-        font-size: 14px;
-      }
-      .summary-box.sufficient {
-        background-color: #d4edda;
-        border: 1px solid #c3e6cb;
-        color: #155724;
-      }
-      .summary-box.insufficient {
-        background-color: #f8d7da;
-        border: 1px solid #f5c6cb;
-        color: #721c24;
-      }
-      .spinner {
-        display: inline-block;
-        width: 16px;
-        height: 16px;
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        border-radius: 50%;
-        border-top-color: white;
-        animation: spin 0.8s linear infinite;
-        margin-right: 8px;
-      }
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
+        .summary-box.sufficient {
+          background-color: #d4edda;
+          border: 1px solid #c3e6cb;
+          color: #155724;
         }
-      }
-      .file-info {
-        font-size: 12px;
-        color: #666;
-        margin-top: 4px;
-      }
-      .drawing-info {
-        font-size: 12px;
-        color: #0079c1;
-        margin-top: 4px;
-        font-style: italic;
+        .summary-box.insufficient {
+          background-color: #f8d7da;
+          border: 1px solid #f5c6cb;
+          color: #721c24;
+        }
+        .spinner {
+          display: inline-block;
+          width: 16px;
+          height: 16px;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-radius: 50%;
+          border-top-color: white;
+          animation: spin 0.8s linear infinite;
+          margin-right: 8px;
+        }
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+        .file-info {
+          font-size: 12px;
+          color: #666;
+          margin-top: 4px;
+        }
+        .drawing-info {
+          font-size: 12px;
+          color: #0079c1;
+          margin-top: 4px;
+          font-style: italic;
+        }
       }
     `
 
