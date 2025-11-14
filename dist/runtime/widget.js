@@ -33,16 +33,16 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
-    _widgetLabel: 'Filtrar e Gerar Relatório',
-    addLayer: 'Adicionar Camada',
-    featureServiceUrl: 'URL do Feature Service',
-    instructions: 'Digite o nº IDEA',
-    searchIdea: 'Pesquisar por número (idea)',
-    filterAndZoom: 'Filtrar',
-    generateReport: 'Gerar Relatório',
-    clearFilter: 'Limpar Filtro',
-    loading: 'Carregando...',
-    layerLoaded: 'Camada carregada com sucesso!'
+    _widgetLabel: 'Calculadora de Compensação',
+    title: 'Calculadora de Compensação',
+    quantidadeIDEA: 'Quantidade de IDEA\'s a analisar:',
+    areaPropostaShapefile: 'Área Proposta (shapefile ZIP):',
+    areaPropostaDesenho: 'Área Proposta (Desenho no mapa):',
+    iniciarDesenho: 'Iniciar Desenho',
+    executarAnalise: 'Executar Análise',
+    limparAnalise: 'Limpar Análise',
+    baixarRelatorio: 'Baixar Relatório',
+    loading: 'Carregando...'
 });
 
 
