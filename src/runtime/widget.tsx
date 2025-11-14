@@ -30,6 +30,9 @@ import type { IMConfig } from '../config'
 
 import defaultMessages from './translations/default'
 
+// Importa JSZip diretamente para evitar problemas com code splitting
+import JSZip from 'jszip'
+
 interface IState {
   jimuMapView: JimuMapView
   loading: boolean
@@ -236,8 +239,7 @@ IState
   // Valida o shapefile dentro do ZIP
   private async validateShapefileInZip(zipFile: File): Promise<{ valid: boolean; message: string; fileCount?: number }> {
     try {
-      // Carrega JSZip dinamicamente
-      const JSZip = (await import('jszip')).default
+      // JSZip já está importado no topo do arquivo
       
       console.log('=== VALIDANDO SHAPEFILE NO ZIP ===')
       console.log('Lendo arquivo ZIP:', zipFile.name, 'Tamanho:', zipFile.size, 'bytes')
@@ -428,8 +430,7 @@ IState
         this.state.jimuMapView.view.map.remove(this.state.shapefileLayer)
       }
       
-      // Lê o ZIP
-      const JSZip = (await import('jszip')).default
+      // Lê o ZIP (JSZip já está importado no topo do arquivo)
       const zipBuffer = await zipFile.arrayBuffer()
       const zip = await JSZip.loadAsync(zipBuffer)
       
