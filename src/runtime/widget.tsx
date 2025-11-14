@@ -544,6 +544,7 @@ IState
       // Lê as features (simplificado - apenas primeira feature)
       let offset = 100 // Header tem 100 bytes
       const features: any[] = []
+      let extractedGeometry: __esri.Polygon | null = null // Armazena a geometria extraída
       
       while (offset < fileLength - 8) {
         try {
@@ -707,9 +708,9 @@ IState
           features.push(graphic)
           console.log(`✓ Feature ${features.length} criada com sucesso`)
           
-          // Salva a geometria no estado para uso posterior na análise
-          this.setState({ shapefileGeometry: polygonGeometry })
-          console.log('✓ Geometria do shapefile salva no estado (WKID:', polygonGeometry.spatialReference?.wkid || 'desconhecido', ')')
+          // Armazena a geometria extraída para uso posterior
+          extractedGeometry = polygonGeometry
+          console.log('✓ Geometria do shapefile extraída (WKID:', polygonGeometry.spatialReference?.wkid || 'desconhecido', ')')
           
           // Para simplificar, vamos pegar apenas a primeira feature
           break
@@ -822,8 +823,21 @@ IState
         }
       })
       
-      // Salva a referência da camada no estado
-      this.setState({ shapefileLayer: featureLayer })
+      // Salva a referência da camada e a geometria no estado
+      // Usa a geometria extraída ou pega da primeira feature como fallback
+      const finalGeometry = extractedGeometry || (features.length > 0 && features[0].geometry as __esri.Polygon) || null
+      if (!finalGeometry) {
+        console.warn('⚠ Nenhuma geometria encontrada para salvar no estado')
+      }
+      this.setState({ 
+        shapefileLayer: featureLayer,
+        shapefileGeometry: finalGeometry
+      })
+      console.log('✓ Camada e geometria salvas no estado:', {
+        hasLayer: !!featureLayer,
+        hasGeometry: !!finalGeometry,
+        geometryWkid: finalGeometry?.spatialReference?.wkid
+      })
       
     } catch (error: any) {
       console.error('Erro ao ler shapefile e adicionar camada:', error)
