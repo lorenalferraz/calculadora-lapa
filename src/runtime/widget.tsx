@@ -831,13 +831,57 @@ IState
   }
 
   // Inicia o modo de desenho
-  handleStartDrawing = () => {
-    if (!this.state.sketchViewModel) {
+  handleStartDrawing = async () => {
+    // Verifica se o mapa está disponível
+    if (!this.state.jimuMapView || !this.state.jimuMapView.view) {
       alert('Aguarde o mapa carregar completamente.')
       return
     }
+
+    // Se o sketchViewModel não existe, tenta inicializar
+    let sketchViewModel = this.state.sketchViewModel
+    if (!sketchViewModel) {
+      console.log('SketchViewModel não encontrado. Inicializando...')
+      try {
+        // Chama initializeSketch e aguarda
+        await this.initializeSketch()
+        
+        // Aguarda o React atualizar o estado (pode levar alguns ciclos)
+        await new Promise(resolve => setTimeout(resolve, 200))
+        
+        // Verifica novamente se foi criado
+        sketchViewModel = this.state.sketchViewModel
+        if (!sketchViewModel) {
+          console.warn('SketchViewModel ainda não foi criado após inicialização')
+          alert('Aguarde o mapa carregar completamente. Tente novamente em alguns segundos.')
+          return
+        }
+      } catch (error) {
+        console.error('Erro ao inicializar SketchViewModel:', error)
+        alert('Erro ao inicializar o desenho. Verifique se o mapa está carregado.')
+        return
+      }
+    }
+
+    // Verifica se o view do sketchViewModel está disponível
+    if (!sketchViewModel.view) {
+      alert('Aguarde o mapa carregar completamente.')
+      return
+    }
+
+    // Verifica se o sketchViewModel está pronto para desenhar
+    if (sketchViewModel.state && sketchViewModel.state !== 'ready') {
+      console.log('SketchViewModel não está pronto. Estado:', sketchViewModel.state)
+      // Tenta cancelar qualquer operação em andamento
+      try {
+        sketchViewModel.cancel()
+      } catch (e) {
+        console.warn('Não foi possível cancelar operação anterior:', e)
+      }
+    }
+
     this.setState({ drawingMode: true })
-    this.state.sketchViewModel.create('polygon')
+    sketchViewModel.create('polygon')
   }
 
   // Limpa a análise e reseta os campos
