@@ -28,9 +28,9 @@ System.register(["jimu-core","jimu-ui","jimu-ui/advanced/setting-components"], f
 /******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
-/***/ "./your-extensions/widgets/filtrar-e-gerar-relatorio/src/setting/translations/default.ts":
+/***/ "./your-extensions/widgets/calculadora-lapa/src/setting/translations/default.ts":
 /*!***********************************************************************************************!*\
-  !*** ./your-extensions/widgets/filtrar-e-gerar-relatorio/src/setting/translations/default.ts ***!
+  !*** ./your-extensions/widgets/calculadora-lapa/src/setting/translations/default.ts ***!
   \***********************************************************************************************/
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
@@ -160,7 +160,7 @@ __webpack_require__.p = window.jimuConfig.baseUrl;
 (() => {
 "use strict";
 /*!***********************************************************************************!*\
-  !*** ./your-extensions/widgets/filtrar-e-gerar-relatorio/src/setting/setting.tsx ***!
+  !*** ./your-extensions/widgets/calculadora-lapa/src/setting/setting.tsx ***!
   \***********************************************************************************/
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -170,7 +170,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var jimu_core__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! jimu-core */ "jimu-core");
 /* harmony import */ var jimu_ui__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! jimu-ui */ "jimu-ui");
 /* harmony import */ var jimu_ui_advanced_setting_components__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! jimu-ui/advanced/setting-components */ "jimu-ui/advanced/setting-components");
-/* harmony import */ var _translations_default__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./translations/default */ "./your-extensions/widgets/filtrar-e-gerar-relatorio/src/setting/translations/default.ts");
+/* harmony import */ var _translations_default__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./translations/default */ "./your-extensions/widgets/calculadora-lapa/src/setting/translations/default.ts");
 /** @jsx jsx */
 /**
   Licensing
