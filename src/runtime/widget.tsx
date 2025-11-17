@@ -759,22 +759,55 @@ IState
       this.state.jimuMapView.view.map.add(featureLayer)
       console.log('✓ Camada adicionada ao mapa localmente')
       
-      // Função auxiliar para fazer zoom na geometria
-      const zoomToGeometry = (geometry: __esri.Polygon) => {
-        if (!geometry || !this.state.jimuMapView?.view) {
+      // Função auxiliar para fazer zoom na camada
+      const zoomToLayer = async (layer: __esri.FeatureLayer, geometry?: __esri.Polygon) => {
+        if (!this.state.jimuMapView?.view) {
+          console.warn('View do mapa não disponível para zoom')
           return
         }
         
         try {
-          const extent = geometry.extent
+          let extent: __esri.Extent | null = null
+          
+          // Prioridade 1: Usa a geometria extraída diretamente (mais confiável para camadas locais)
+          if (geometry && geometry.extent) {
+            extent = geometry.extent
+            console.log('Extent obtido da geometria extraída')
+          }
+          
+          // Prioridade 2: Usa a geometria da primeira feature
+          if (!extent && features.length > 0 && features[0].geometry && features[0].geometry.extent) {
+            extent = features[0].geometry.extent
+            console.log('Extent obtido da primeira feature')
+          }
+          
+          // Prioridade 3: Tenta usar fullExtent da camada
+          if (!extent && layer.fullExtent) {
+            extent = layer.fullExtent
+            console.log('Extent obtido via fullExtent da camada')
+          }
+          
+          // Prioridade 4: Tenta usar queryExtent() da camada
           if (!extent) {
-            console.warn('Extent não disponível para a geometria')
+            try {
+              const queryExtentResult = await layer.queryExtent()
+              if (queryExtentResult && queryExtentResult.extent) {
+                extent = queryExtentResult.extent
+                console.log('Extent obtido via queryExtent() da camada')
+              }
+            } catch (queryError) {
+              console.warn('Não foi possível obter extent via queryExtent:', queryError)
+            }
+          }
+          
+          if (!extent) {
+            console.warn('Extent não disponível para zoom - nenhum método funcionou')
             return
           }
           
           // Verifica se o extent é válido
           if (extent.xmin === null || extent.xmax === null || extent.ymin === null || extent.ymax === null) {
-            console.warn('Extent possui valores inválidos')
+            console.warn('Extent possui valores inválidos (null)')
             return
           }
           
@@ -784,44 +817,184 @@ IState
             return
           }
           
-          // Cria um novo extent expandido
+          // Verifica se o extent tem área válida (não é um ponto)
+          const width = extent.xmax - extent.xmin
+          const height = extent.ymax - extent.ymin
+          if (width === 0 && height === 0) {
+            console.warn('Extent é um ponto único - não é possível fazer zoom')
+            return
+          }
+          
+          console.log('Extent válido encontrado:', {
+            xmin: extent.xmin,
+            ymin: extent.ymin,
+            xmax: extent.xmax,
+            ymax: extent.ymax,
+            width,
+            height,
+            spatialReference: extent.spatialReference?.wkid
+          })
+          
+          // Cria um novo extent expandido (15% de padding para melhor visualização)
+          const padding = 0.15
           const expandedExtent = {
-            xmin: extent.xmin - (extent.xmax - extent.xmin) * 0.1,
-            ymin: extent.ymin - (extent.ymax - extent.ymin) * 0.1,
-            xmax: extent.xmax + (extent.xmax - extent.xmin) * 0.1,
-            ymax: extent.ymax + (extent.ymax - extent.ymin) * 0.1,
+            xmin: extent.xmin - width * padding,
+            ymin: extent.ymin - height * padding,
+            xmax: extent.xmax + width * padding,
+            ymax: extent.ymax + height * padding,
             spatialReference: extent.spatialReference
           }
           
-          this.state.jimuMapView.view.goTo(expandedExtent).then(() => {
-            console.log('✓ Zoom aplicado à camada')
+          console.log('Aplicando zoom automático...')
+          
+          // Obtém a projeção atual do mapa/view
+          const viewSpatialRef = this.state.jimuMapView.view.spatialReference
+          console.log('Projeção do mapa/view:', viewSpatialRef?.wkid || 'desconhecida')
+          console.log('Projeção do extent:', extent.spatialReference?.wkid || 'desconhecida')
+          
+          // Aguarda um pequeno delay para garantir que a camada foi renderizada
+          await new Promise(resolve => setTimeout(resolve, 500))
+          
+          // Tenta fazer zoom usando a geometria diretamente primeiro (API converte automaticamente)
+          // Se tiver geometria disponível, usa ela ao invés do extent
+          if (geometry && geometry.type === 'polygon') {
+            console.log('Tentando zoom usando geometria diretamente...')
+            try {
+              await this.state.jimuMapView.view.goTo(geometry, {
+                duration: 1000,
+                padding: {
+                  left: 50,
+                  top: 50,
+                  right: 50,
+                  bottom: 50
+                }
+              })
+              console.log('✓ Zoom automático aplicado usando geometria com sucesso')
+              return // Sucesso, sai da função
+            } catch (geometryZoomError) {
+              console.warn('Erro ao fazer zoom com geometria, tentando com extent:', geometryZoomError)
+              // Continua para tentar com extent
+            }
+          }
+          
+          // Tenta projetar o extent para a projeção do mapa se necessário
+          let extentToUse: any = expandedExtent
+          if (extent.spatialReference?.wkid !== viewSpatialRef?.wkid && viewSpatialRef?.wkid) {
+            try {
+              console.log('Convertendo extent para projeção do mapa...')
+              const extentGeometry = new Polygon({
+                rings: [
+                  [[expandedExtent.xmin, expandedExtent.ymin], [expandedExtent.xmax, expandedExtent.ymin], 
+                   [expandedExtent.xmax, expandedExtent.ymax], [expandedExtent.xmin, expandedExtent.ymax], 
+                   [expandedExtent.xmin, expandedExtent.ymin]]
+                ],
+                spatialReference: extent.spatialReference
+              })
+              
+              const targetSpatialRef = new SpatialReference(viewSpatialRef)
+              const projectedGeometry = geometryEngine.project(extentGeometry, targetSpatialRef) as __esri.Polygon
+              if (projectedGeometry && projectedGeometry.extent) {
+                const projectedExtent = projectedGeometry.extent
+                extentToUse = {
+                  xmin: projectedExtent.xmin - (projectedExtent.xmax - projectedExtent.xmin) * 0.15,
+                  ymin: projectedExtent.ymin - (projectedExtent.ymax - projectedExtent.ymin) * 0.15,
+                  xmax: projectedExtent.xmax + (projectedExtent.xmax - projectedExtent.xmin) * 0.15,
+                  ymax: projectedExtent.ymax + (projectedExtent.ymax - projectedExtent.ymin) * 0.15,
+                  spatialReference: targetSpatialRef
+                }
+                console.log('Extent convertido para projeção do mapa:', viewSpatialRef.wkid)
+              }
+            } catch (projectError) {
+              console.warn('Erro ao projetar extent, usando extent original:', projectError)
+            }
+          }
+          
+          // Tenta fazer zoom com o extent
+          this.state.jimuMapView.view.goTo(extentToUse, {
+            duration: 1000, // Animação suave de 1 segundo
+            easing: 'ease-in-out'
+          }).then(() => {
+            console.log('✓ Zoom automático aplicado à camada com sucesso')
           }).catch((zoomError) => {
-            console.warn('Erro ao fazer zoom:', zoomError)
+            console.warn('Erro ao fazer zoom com extent:', zoomError)
+            // Tenta novamente usando geometria se disponível
+            if (geometry) {
+              setTimeout(() => {
+                if (this.state.jimuMapView?.view) {
+                  this.state.jimuMapView.view.goTo(geometry, {
+                    padding: { left: 50, top: 50, right: 50, bottom: 50 }
+                  })
+                    .then(() => console.log('✓ Zoom aplicado na segunda tentativa (usando geometria)'))
+                    .catch((retryError) => {
+                      console.warn('Erro na segunda tentativa de zoom:', retryError)
+                      // Última tentativa sem animação e sem padding
+                      setTimeout(() => {
+                        if (this.state.jimuMapView?.view) {
+                          this.state.jimuMapView.view.goTo(geometry)
+                            .then(() => console.log('✓ Zoom aplicado na terceira tentativa (sem animação)'))
+                            .catch((finalError) => console.error('Erro na terceira tentativa de zoom:', finalError))
+                        }
+                      }, 500)
+                    })
+                }
+              }, 800)
+            } else {
+              // Se não tiver geometria, tenta novamente com extent
+              setTimeout(() => {
+                if (this.state.jimuMapView?.view) {
+                  this.state.jimuMapView.view.goTo(extentToUse)
+                    .then(() => console.log('✓ Zoom aplicado na segunda tentativa (sem animação)'))
+                    .catch((finalError) => console.error('Erro na segunda tentativa de zoom:', finalError))
+                }
+              }, 800)
+            }
           })
         } catch (error) {
-          console.warn('Erro ao processar extent:', error)
+          console.error('Erro ao processar zoom:', error)
         }
       }
       
-      // Aguarda a camada carregar e faz zoom para ela
+      // Aguarda a camada carregar completamente e faz zoom imediatamente
       featureLayer.when(() => {
-        console.log('Camada carregada, fazendo zoom...')
-        if (features.length > 0 && features[0].geometry) {
-          const geometry = features[0].geometry as __esri.Polygon
-          zoomToGeometry(geometry)
+        console.log('Camada carregada, preparando zoom automático...')
+        const geometry = extractedGeometry || (features.length > 0 ? features[0].geometry as __esri.Polygon : null)
+        if (geometry) {
+          // Aguarda um pouco para garantir que a camada foi totalmente processada
+          setTimeout(() => {
+            zoomToLayer(featureLayer, geometry)
+          }, 300)
+        } else {
+          console.warn('Geometria não disponível para zoom imediato')
         }
       }).catch((layerError) => {
         console.error('Erro ao carregar camada:', layerError)
       })
       
-      // Também escuta o evento layerview-create para garantir que a camada foi renderizada
+      // Escuta o evento layerview-create para garantir que a camada foi renderizada no mapa
+      // Este é um evento importante que garante que a camada está visível no mapa
       featureLayer.on('layerview-create', (event) => {
-        console.log('LayerView criada:', event)
-        if (features.length > 0 && features[0].geometry) {
-          const geometry = features[0].geometry as __esri.Polygon
-          zoomToGeometry(geometry)
+        console.log('LayerView criada, aplicando zoom automático...')
+        const geometry = extractedGeometry || (features.length > 0 ? features[0].geometry as __esri.Polygon : null)
+        if (geometry) {
+          // Aguarda um delay maior para garantir renderização completa no mapa
+          setTimeout(() => {
+            zoomToLayer(featureLayer, geometry)
+          }, 500)
+        } else {
+          console.warn('Geometria não disponível para zoom após layerview-create')
         }
       })
+      
+      // Fallback adicional: tenta fazer zoom após um tempo maior caso os outros eventos não funcionem
+      setTimeout(() => {
+        if (extractedGeometry || (features.length > 0 && features[0].geometry)) {
+          const geometry = extractedGeometry || (features.length > 0 ? features[0].geometry as __esri.Polygon : null)
+          if (geometry) {
+            console.log('Aplicando zoom automático via fallback (timeout)...')
+            zoomToLayer(featureLayer, geometry)
+          }
+        }
+      }, 2000)
       
       // Salva a referência da camada e a geometria no estado
       // Usa a geometria extraída ou pega da primeira feature como fallback
