@@ -82,6 +82,17 @@ IState
     jobId: null
   }
 
+<<<<<<< HEAD
+  // URL da ferramenta de geoprocessamento de calculadora de compensação
+  readonly GP_SERVICE_URL = 'https://meioambiente.sistemas.mpba.mp.br/server/rest/services/testeoutput/calculadora/GPServer'
+  
+  // URL do Portal/Server
+  readonly PORTAL_URL = 'https://meioambiente.sistemas.mpba.mp.br/server'
+  
+  // Nome da task específica dentro da GP
+  readonly GP_TASK_NAME = 'Simular Área de Compensação'
+  
+=======
   // URL do submitJob da ferramenta de geoprocessamento
   readonly GP_SUBMIT_JOB_URL = 'https://meioambiente.sistemas.mpba.mp.br/server/rest/services/testeoutput/calculadora/GPServer/Simular%20%C3%81rea%20de%20Compensa%C3%A7%C3%A3o/submitJob'
 
@@ -93,6 +104,8 @@ IState
 
   // URL do Portal/Server
   readonly PORTAL_URL = 'https://meioambiente.sistemas.mpba.mp.br/server'
+  
+>>>>>>> fff2753 (Atualiza endpoint submitJob)
   // Token fornecido para autenticação
   readonly GP_TOKEN = '_zND49dKhvn59tDT4Hq480F8IoVNvwFrgpJRWjyHRBGr8bYaKL_YyzRAy8fWCF-vKaBvjXhH2FuL6OQ0tSffAHebaQBFMN1CpOovsy8fz7U7o9BAvHRXTxi-p6QgvQqB'
   

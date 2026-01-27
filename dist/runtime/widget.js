@@ -1153,12 +1153,7 @@ class Widget extends jimu_core__WEBPACK_IMPORTED_MODULE_0__.React.PureComponent 
                     console.log('URLSearchParams preparado com', Object.keys(params).length, 'parâmetros + token + f=json');
                 }
                 // URL do submitJob (assíncrona) - usando a URL fornecida pelo usuário
-<<<<<<< HEAD
-                const taskNameEncoded = encodeURIComponent(this.GP_TASK_NAME);
-                const submitJobUrl = `${this.GP_SERVICE_URL}/${taskNameEncoded}/submitJob`;
-=======
                 const submitJobUrl = this.GP_SUBMIT_JOB_URL;
->>>>>>> fff2753 (Atualiza endpoint submitJob)
                 // IMPORTANTE: Para POST, o token deve ir no BODY, não na URL
                 // URL limpa, sem query parameters (incluindo token)
                 const finalUrl = submitJobUrl;
