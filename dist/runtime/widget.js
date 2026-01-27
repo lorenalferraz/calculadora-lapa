@@ -262,12 +262,14 @@ class Widget extends jimu_core__WEBPACK_IMPORTED_MODULE_0__.React.PureComponent 
             drawingMode: false,
             jobId: null
         };
-        // URL da ferramenta de geoprocessamento de calculadora de compensação
-        this.GP_SERVICE_URL = 'https://meioambiente.sistemas.mpba.mp.br/server/rest/services/testeoutput/calculadora/GPServer';
+        // URL do submitJob da ferramenta de geoprocessamento
+        this.GP_SUBMIT_JOB_URL = 'https://meioambiente.sistemas.mpba.mp.br/server/rest/services/testeoutput/calculadora/GPServer/Simular%20%C3%81rea%20de%20Compensa%C3%A7%C3%A3o/submitJob';
+        // URL base do serviço GP (derivada do submitJob)
+        this.GP_SERVICE_URL = this.GP_SUBMIT_JOB_URL.replace(/\/[^/]+\/submitJob$/, '');
+        // Nome da task específica (derivado do submitJob)
+        this.GP_TASK_NAME = decodeURIComponent(this.GP_SUBMIT_JOB_URL.split('/').slice(-2, -1)[0]);
         // URL do Portal/Server
         this.PORTAL_URL = 'https://meioambiente.sistemas.mpba.mp.br/server';
-        // Nome da task específica dentro da GP
-        this.GP_TASK_NAME = 'Simular Área de Compensação';
         // Token fornecido para autenticação
         this.GP_TOKEN = '_zND49dKhvn59tDT4Hq480F8IoVNvwFrgpJRWjyHRBGr8bYaKL_YyzRAy8fWCF-vKaBvjXhH2FuL6OQ0tSffAHebaQBFMN1CpOovsy8fz7U7o9BAvHRXTxi-p6QgvQqB';
         // Client Secret para autenticação OAuth2 (quando necessário renovar token)
@@ -1151,8 +1153,12 @@ class Widget extends jimu_core__WEBPACK_IMPORTED_MODULE_0__.React.PureComponent 
                     console.log('URLSearchParams preparado com', Object.keys(params).length, 'parâmetros + token + f=json');
                 }
                 // URL do submitJob (assíncrona) - usando a URL fornecida pelo usuário
+<<<<<<< HEAD
                 const taskNameEncoded = encodeURIComponent(this.GP_TASK_NAME);
                 const submitJobUrl = `${this.GP_SERVICE_URL}/${taskNameEncoded}/submitJob`;
+=======
+                const submitJobUrl = this.GP_SUBMIT_JOB_URL;
+>>>>>>> fff2753 (Atualiza endpoint submitJob)
                 // IMPORTANTE: Para POST, o token deve ir no BODY, não na URL
                 // URL limpa, sem query parameters (incluindo token)
                 const finalUrl = submitJobUrl;

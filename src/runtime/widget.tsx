@@ -82,15 +82,17 @@ IState
     jobId: null
   }
 
-  // URL da ferramenta de geoprocessamento de calculadora de compensação
-  readonly GP_SERVICE_URL = 'https://meioambiente.sistemas.mpba.mp.br/server/rest/services/testeoutput/calculadora/GPServer'
-  
+  // URL do submitJob da ferramenta de geoprocessamento
+  readonly GP_SUBMIT_JOB_URL = 'https://meioambiente.sistemas.mpba.mp.br/server/rest/services/testeoutput/calculadora/GPServer/Simular%20%C3%81rea%20de%20Compensa%C3%A7%C3%A3o/submitJob'
+
+  // URL base do serviço GP (derivada do submitJob)
+  readonly GP_SERVICE_URL = this.GP_SUBMIT_JOB_URL.replace(/\/[^/]+\/submitJob$/, '')
+
+  // Nome da task específica (derivado do submitJob)
+  readonly GP_TASK_NAME = decodeURIComponent(this.GP_SUBMIT_JOB_URL.split('/').slice(-2, -1)[0])
+
   // URL do Portal/Server
   readonly PORTAL_URL = 'https://meioambiente.sistemas.mpba.mp.br/server'
-  
-  // Nome da task específica dentro da GP
-  readonly GP_TASK_NAME = 'Simular Área de Compensação'
-  
   // Token fornecido para autenticação
   readonly GP_TOKEN = '_zND49dKhvn59tDT4Hq480F8IoVNvwFrgpJRWjyHRBGr8bYaKL_YyzRAy8fWCF-vKaBvjXhH2FuL6OQ0tSffAHebaQBFMN1CpOovsy8fz7U7o9BAvHRXTxi-p6QgvQqB'
   
@@ -2010,8 +2012,12 @@ IState
       }
 
       // URL do submitJob (assíncrona) - usando a URL fornecida pelo usuário
+<<<<<<< HEAD
       const taskNameEncoded = encodeURIComponent(this.GP_TASK_NAME)
       const submitJobUrl = `${this.GP_SERVICE_URL}/${taskNameEncoded}/submitJob`
+=======
+      const submitJobUrl = this.GP_SUBMIT_JOB_URL
+>>>>>>> fff2753 (Atualiza endpoint submitJob)
 
       // IMPORTANTE: Para POST, o token deve ir no BODY, não na URL
       // URL limpa, sem query parameters (incluindo token)
