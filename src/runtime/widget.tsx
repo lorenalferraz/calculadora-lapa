@@ -43,6 +43,7 @@ interface IState {
   shapefileLayer: __esri.FeatureLayer | null // Camada do shapefile adicionada ao mapa
   shapefileGeometry: __esri.Polygon | null // Geometria extraída do shapefile
   drawnGeometry: __esri.Geometry | null
+  drawnGraphic: __esri.Graphic | null
   sketchViewModel: __esri.SketchViewModel | null
   graphicsLayer: __esri.GraphicsLayer | null
   analysisResult: {
@@ -52,6 +53,10 @@ interface IState {
   reportUrl: string | null
   drawingMode: boolean
   jobId: string | null
+  currentStatus: string | null // Status atual do processamento (não acumulado)
+  jobStartTimeMs: number | null
+  elapsedSeconds: number
+  totalTimeSeconds: number | null
 }
 
 export default class Widget extends React.PureComponent<
@@ -63,6 +68,8 @@ IState
   GraphicsLayer: typeof __esri.GraphicsLayer
   Polygon: typeof __esri.Polygon
   FeatureLayer: typeof __esri.FeatureLayer
+  private jobTimerId: number | null = null
+  private lastStatusMessageBase: string | null = null
 
   state: IState = {
     jimuMapView: null,
@@ -74,25 +81,19 @@ IState
     shapefileLayer: null,
     shapefileGeometry: null,
     drawnGeometry: null,
+    drawnGraphic: null,
     sketchViewModel: null,
     graphicsLayer: null,
     analysisResult: null,
     reportUrl: null,
     drawingMode: false,
-    jobId: null
+    jobId: null,
+    currentStatus: null,
+    jobStartTimeMs: null,
+    elapsedSeconds: 0,
+    totalTimeSeconds: null
   }
 
-<<<<<<< HEAD
-  // URL da ferramenta de geoprocessamento de calculadora de compensação
-  readonly GP_SERVICE_URL = 'https://meioambiente.sistemas.mpba.mp.br/server/rest/services/testeoutput/calculadora/GPServer'
-  
-  // URL do Portal/Server
-  readonly PORTAL_URL = 'https://meioambiente.sistemas.mpba.mp.br/server'
-  
-  // Nome da task específica dentro da GP
-  readonly GP_TASK_NAME = 'Simular Área de Compensação'
-  
-=======
   // URL do submitJob da ferramenta de geoprocessamento
   readonly GP_SUBMIT_JOB_URL = 'https://meioambiente.sistemas.mpba.mp.br/server/rest/services/testeoutput/calculadora/GPServer/Simular%20%C3%81rea%20de%20Compensa%C3%A7%C3%A3o/submitJob'
 
@@ -104,8 +105,6 @@ IState
 
   // URL do Portal/Server
   readonly PORTAL_URL = 'https://meioambiente.sistemas.mpba.mp.br/server'
-  
->>>>>>> fff2753 (Atualiza endpoint submitJob)
   // Token fornecido para autenticação
   readonly GP_TOKEN = '_zND49dKhvn59tDT4Hq480F8IoVNvwFrgpJRWjyHRBGr8bYaKL_YyzRAy8fWCF-vKaBvjXhH2FuL6OQ0tSffAHebaQBFMN1CpOovsy8fz7U7o9BAvHRXTxi-p6QgvQqB'
   
@@ -197,21 +196,39 @@ IState
                 console.log('Não foi possível calcular extent')
               }
               
+              // IMPORTANTE: Garante que o gráfico permaneça no mapa
+              // O gráfico já foi adicionado ao graphicsLayer pelo SketchViewModel
+              if (event.graphic && graphicsLayer) {
+                event.graphic.visible = true
+                console.log('✓ Polígono desenhado permanece visível no mapa')
+              }
+
               this.setState({
                 drawnGeometry: geometry,
+                drawnGraphic: event.graphic || null,
                 drawingMode: false
               })
               // Não precisa resetar - o SketchViewModel já está pronto para um novo desenho
             } else {
               alert('Por favor, desenhe um polígono válido com pelo menos 3 pontos.')
-              // Cancela o desenho inválido
+              // Cancela o desenho inválido e remove o gráfico inválido
               if (sketchViewModel.state !== 'ready') {
                 sketchViewModel.cancel()
               }
+              if (event.graphic && graphicsLayer) {
+                graphicsLayer.remove(event.graphic)
+              }
             }
           } else {
+            // IMPORTANTE: Garante que o gráfico permaneça no mapa
+            if (event.graphic && graphicsLayer) {
+              event.graphic.visible = true
+              console.log('✓ Geometria desenhada permanece visível no mapa')
+            }
+
             this.setState({
               drawnGeometry: geometry,
+              drawnGraphic: event.graphic || null,
               drawingMode: false
             })
             // Não precisa resetar - o SketchViewModel já está pronto para um novo desenho
@@ -1089,6 +1106,9 @@ IState
 
   // Limpa a análise e reseta os campos
   handleClearAnalysis = () => {
+    this.stopJobTimer()
+    // Limpa também o status
+    this.setState({ currentStatus: null })
     // Remove os gráficos desenhados no mapa
     if (this.state.graphicsLayer) {
       this.state.graphicsLayer.removeAll()
@@ -1122,12 +1142,17 @@ IState
       shapefileLayer: null,
       shapefileGeometry: null,
       drawnGeometry: null,
+      drawnGraphic: null,
       analysisResult: null,
       reportUrl: null,
       drawingMode: false,
       jobId: null,
       loading: false,
-      progress: 0
+      progress: 0,
+      jobStartTimeMs: null,
+      elapsedSeconds: 0,
+      totalTimeSeconds: null,
+      currentStatus: null
     })
 
     // Limpa o input de arquivo
@@ -1139,6 +1164,31 @@ IState
     console.log('Análise limpa completamente. Pronto para nova análise.')
   }
 
+  private startJobTimer = () => {
+    if (this.jobTimerId !== null) {
+      window.clearInterval(this.jobTimerId)
+    }
+    this.jobTimerId = window.setInterval(() => {
+      const jobStartTimeMs = this.state.jobStartTimeMs
+      if (!jobStartTimeMs || !this.state.loading) {
+        return
+      }
+      const elapsedSeconds = Math.max(0, Math.floor((Date.now() - jobStartTimeMs) / 1000))
+      const baseMessage = this.lastStatusMessageBase || this.state.currentStatus || 'Processando análise...'
+      this.setState({
+        elapsedSeconds,
+        currentStatus: `${baseMessage} (${elapsedSeconds}s)`
+      })
+    }, 1000)
+  }
+
+  private stopJobTimer = () => {
+    if (this.jobTimerId !== null) {
+      window.clearInterval(this.jobTimerId)
+      this.jobTimerId = null
+    }
+  }
+
   // Baixa o relatório
   handleDownloadReport = () => {
     if (this.state.reportUrl) {
@@ -1146,6 +1196,240 @@ IState
           } else {
       alert('Nenhum relatório disponível para download.')
     }
+  }
+
+  // Baixa o polígono desenhado como shapefile (ZIP)
+  handleDownloadDrawnPolygon = async () => {
+    if (!this.state.drawnGeometry || this.state.drawnGeometry.type !== 'polygon') {
+      alert('Nenhum polígono desenhado para baixar.')
+      return
+    }
+
+    try {
+      const geometry = this.state.drawnGeometry as __esri.Polygon
+      const spatialRef = geometry.spatialReference
+      const wkid = spatialRef?.wkid || 4674 // SIRGAS 2000 como padrão
+
+      console.log('=== EXPORTANDO POLÍGONO DESENHADO ===')
+      console.log('WKID:', wkid)
+      console.log('Rings:', geometry.rings.length)
+
+      // Converte a geometria para coordenadas
+      const rings = geometry.rings
+      if (!rings || rings.length === 0 || !rings[0] || rings[0].length < 3) {
+        throw new Error('Polígono inválido para exportação')
+      }
+
+      // Pega o primeiro ring (exterior)
+      const exteriorRing = rings[0]
+      
+      // Garante que o ring está fechado
+      const firstPoint = exteriorRing[0]
+      const lastPoint = exteriorRing[exteriorRing.length - 1]
+      const isClosed = firstPoint[0] === lastPoint[0] && firstPoint[1] === lastPoint[1]
+      const closedRing = isClosed ? exteriorRing : [...exteriorRing, [firstPoint[0], firstPoint[1]]]
+
+      // Calcula bounding box
+      let xmin = closedRing[0][0]
+      let ymin = closedRing[0][1]
+      let xmax = closedRing[0][0]
+      let ymax = closedRing[0][1]
+
+      closedRing.forEach(([x, y]) => {
+        xmin = Math.min(xmin, x)
+        ymin = Math.min(ymin, y)
+        xmax = Math.max(xmax, x)
+        ymax = Math.max(ymax, y)
+      })
+
+      // Cria o shapefile básico
+      const shapefileData = this.createShapefileFromPolygon(closedRing, xmin, ymin, xmax, ymax)
+      const prjContent = this.getPrjContent(wkid)
+
+      // Cria o ZIP com os arquivos do shapefile
+      const zip = new JSZip()
+      
+      // Adiciona arquivos do shapefile
+      zip.file('poligono_desenhado.shp', shapefileData.shp)
+      zip.file('poligono_desenhado.shx', shapefileData.shx)
+      zip.file('poligono_desenhado.dbf', shapefileData.dbf)
+      zip.file('poligono_desenhado.prj', prjContent)
+
+      // Gera o ZIP e faz download
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+      const url = URL.createObjectURL(zipBlob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'poligono_desenhado.zip'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      console.log('✓ Polígono exportado com sucesso')
+    } catch (error) {
+      console.error('Erro ao exportar polígono:', error)
+      alert(`Erro ao exportar polígono: ${error.message}`)
+    }
+  }
+
+  // Cria os arquivos binários do shapefile a partir de um polígono
+  private createShapefileFromPolygon(
+    ring: number[][],
+    xmin: number,
+    ymin: number,
+    xmax: number,
+    ymax: number
+  ): { shp: Uint8Array, shx: Uint8Array, dbf: Uint8Array } {
+    const numPoints = ring.length
+    const numParts = 1
+
+    // HEADER DO .SHP (100 bytes)
+    const shpHeader = new ArrayBuffer(100)
+    const shpHeaderView = new DataView(shpHeader)
+    
+    // File code (big-endian)
+    shpHeaderView.setInt32(0, 9994, false)
+    // Version (little-endian)
+    shpHeaderView.setInt32(28, 1000, true)
+    // Shape type (little-endian) - 5 = Polygon
+    shpHeaderView.setInt32(32, 5, true)
+    // Bounding box
+    shpHeaderView.setFloat64(36, xmin, true)
+    shpHeaderView.setFloat64(44, ymin, true)
+    shpHeaderView.setFloat64(52, xmax, true)
+    shpHeaderView.setFloat64(60, ymax, true)
+
+    // RECORD DO .SHP
+    const recordHeader = new ArrayBuffer(8)
+    const recordHeaderView = new DataView(recordHeader)
+    recordHeaderView.setInt32(0, 1, false) // Record number
+    
+    // Record content
+    const shapeType = new ArrayBuffer(4)
+    const shapeTypeView = new DataView(shapeType)
+    shapeTypeView.setInt32(0, 5, true) // Polygon
+    
+    const bbox = new ArrayBuffer(32)
+    const bboxView = new DataView(bbox)
+    bboxView.setFloat64(0, xmin, true)
+    bboxView.setFloat64(8, ymin, true)
+    bboxView.setFloat64(16, xmax, true)
+    bboxView.setFloat64(24, ymax, true)
+    
+    const numPartsBuf = new ArrayBuffer(4)
+    const numPartsView = new DataView(numPartsBuf)
+    numPartsView.setInt32(0, numParts, true)
+    
+    const numPointsBuf = new ArrayBuffer(4)
+    const numPointsView = new DataView(numPointsBuf)
+    numPointsView.setInt32(0, numPoints, true)
+    
+    const partsBuf = new ArrayBuffer(4)
+    const partsView = new DataView(partsBuf)
+    partsView.setInt32(0, 0, true)
+    
+    const pointsBuf = new ArrayBuffer(numPoints * 16)
+    const pointsView = new DataView(pointsBuf)
+    ring.forEach(([x, y], i) => {
+      pointsView.setFloat64(i * 16, x, true)
+      pointsView.setFloat64(i * 16 + 8, y, true)
+    })
+    
+    const contentLength = (4 + 32 + 4 + 4 + 4 + numPoints * 16) / 2
+    recordHeaderView.setInt32(4, contentLength, false)
+    
+    const recordContent = new Uint8Array(4 + 32 + 4 + 4 + 4 + numPoints * 16)
+    let offset = 0
+    recordContent.set(new Uint8Array(shapeType), offset)
+    offset += 4
+    recordContent.set(new Uint8Array(bbox), offset)
+    offset += 32
+    recordContent.set(new Uint8Array(numPartsBuf), offset)
+    offset += 4
+    recordContent.set(new Uint8Array(numPointsBuf), offset)
+    offset += 4
+    recordContent.set(new Uint8Array(partsBuf), offset)
+    offset += 4
+    recordContent.set(new Uint8Array(pointsBuf), offset)
+    
+    const fileLength = 50 + 4 + contentLength
+    shpHeaderView.setInt32(24, fileLength, false)
+    
+    const shpFile = new Uint8Array(100 + 8 + recordContent.length)
+    shpFile.set(new Uint8Array(shpHeader), 0)
+    shpFile.set(new Uint8Array(recordHeader), 100)
+    shpFile.set(recordContent, 108)
+
+    // .SHX file
+    const shxHeader = new ArrayBuffer(100)
+    const shxHeaderView = new DataView(shxHeader)
+    shxHeaderView.setInt32(0, 9994, false)
+    const shxFileLength = 50 + 4 + 4
+    shxHeaderView.setInt32(24, shxFileLength, false)
+    shxHeaderView.setInt32(28, 1000, true)
+    shxHeaderView.setInt32(32, 5, true)
+    shxHeaderView.setFloat64(36, xmin, true)
+    shxHeaderView.setFloat64(44, ymin, true)
+    shxHeaderView.setFloat64(52, xmax, true)
+    shxHeaderView.setFloat64(60, ymax, true)
+
+    const shxRecord = new ArrayBuffer(8)
+    const shxRecordView = new DataView(shxRecord)
+    shxRecordView.setInt32(0, 50, false) // Offset (100 bytes / 2)
+    shxRecordView.setInt32(4, contentLength, false) // Content length
+    
+    const shxFile = new Uint8Array(100 + 8)
+    shxFile.set(new Uint8Array(shxHeader), 0)
+    shxFile.set(new Uint8Array(shxRecord), 100)
+
+    // .DBF file (1 atributo ID)
+    const dbfHeader = new ArrayBuffer(32)
+    const dbfHeaderView = new DataView(dbfHeader)
+    dbfHeaderView.setUint8(0, 0x03) // Version
+    const now = new Date()
+    dbfHeaderView.setUint8(1, now.getFullYear() - 1900)
+    dbfHeaderView.setUint8(2, now.getMonth() + 1)
+    dbfHeaderView.setUint8(3, now.getDate())
+    dbfHeaderView.setUint32(4, 1, true) // Number of records
+    dbfHeaderView.setUint16(8, 33 + 32, true) // Header length
+    dbfHeaderView.setUint16(10, 1 + 4, true) // Record length
+
+    const fieldDescriptor = new ArrayBuffer(32)
+    const fieldView = new DataView(fieldDescriptor)
+    const fieldName = 'ID'
+    for (let i = 0; i < fieldName.length; i++) {
+      fieldView.setUint8(i, fieldName.charCodeAt(i))
+    }
+    fieldView.setUint8(11, 'N'.charCodeAt(0)) // Numeric
+    fieldView.setUint8(16, 4) // Length
+
+    const headerTerminator = new Uint8Array([0x0D])
+    const recordBuffer = new Uint8Array(1 + 4)
+    recordBuffer[0] = 0x20 // Not deleted
+    recordBuffer.set(new TextEncoder().encode('1'.padStart(4, ' ')), 1)
+
+    const dbfFile = new Uint8Array(32 + 32 + 1 + (1 + 4) + 1)
+    let dbfOffset = 0
+    dbfFile.set(new Uint8Array(dbfHeader), dbfOffset)
+    dbfOffset += 32
+    dbfFile.set(new Uint8Array(fieldDescriptor), dbfOffset)
+    dbfOffset += 32
+    dbfFile.set(headerTerminator, dbfOffset)
+    dbfOffset += 1
+    dbfFile.set(recordBuffer, dbfOffset)
+    dbfOffset += recordBuffer.length
+    dbfFile.set(new Uint8Array([0x1A]), dbfOffset) // EOF
+
+    return { shp: shpFile, shx: shxFile, dbf: dbfFile }
+  }
+
+  private getPrjContent = (wkid: number): string => {
+    const prjMap: { [key: number]: string } = {
+      4674: 'GEOGCS["SIRGAS 2000",DATUM["Sistema de Referencia Geocentrico para America del Sur 2000",SPHEROID["GRS 1980",6378137,298.257222101]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]]',
+      4326: 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]]'
+    }
+    return prjMap[wkid] || prjMap[4674]
   }
 
   // Faz upload do shapefile ZIP para o portal e retorna a URL da camada
@@ -1363,7 +1647,18 @@ IState
       return
     }
     
-    this.setState({ loading: true, progress: 0, analysisResult: null, reportUrl: null, jobId: null })
+    this.stopJobTimer()
+    this.setState({
+      loading: true,
+      progress: 0,
+      analysisResult: null,
+      reportUrl: null,
+      jobId: null,
+      currentStatus: null,
+      jobStartTimeMs: null,
+      elapsedSeconds: 0,
+      totalTimeSeconds: null
+    })
 
     try {
       // Carrega módulos necessários
@@ -2024,13 +2319,8 @@ IState
         console.log('URLSearchParams preparado com', Object.keys(params).length, 'parâmetros + token + f=json')
       }
 
-      // URL do submitJob (assíncrona) - usando a URL fornecida pelo usuário
-<<<<<<< HEAD
-      const taskNameEncoded = encodeURIComponent(this.GP_TASK_NAME)
-      const submitJobUrl = `${this.GP_SERVICE_URL}/${taskNameEncoded}/submitJob`
-=======
+      // URL do submitJob (assíncrona)
       const submitJobUrl = this.GP_SUBMIT_JOB_URL
->>>>>>> fff2753 (Atualiza endpoint submitJob)
 
       // IMPORTANTE: Para POST, o token deve ir no BODY, não na URL
       // URL limpa, sem query parameters (incluindo token)
@@ -2069,6 +2359,12 @@ IState
 
       let response: Response
       let result: any
+      const timingStartMs = Date.now()
+      let submitStartMs = 0
+      let submitEndMs = 0
+      let jobIdAtMs = 0
+      let firstStatusAtMs: number | null = null
+      let firstExecutingAtMs: number | null = null
 
       try {
         console.log('=== INÍCIO DA REQUISIÇÃO ===')
@@ -2078,8 +2374,12 @@ IState
         console.log('Método:', fetchOptions.method)
         console.log('Headers:', headers)
         console.log('Body type:', requestBody instanceof FormData ? 'FormData' : 'URLSearchParams')
-        
+
+        submitStartMs = Date.now()
+        console.log('[TIMING] Início do submitJob:', new Date(submitStartMs).toLocaleString())
         response = await fetch(finalUrl, fetchOptions)
+        submitEndMs = Date.now()
+        console.log('[TIMING] submitJob retornou em', Math.round((submitEndMs - submitStartMs) / 1000), 's')
         
         console.log('=== RESPOSTA RECEBIDA ===')
         console.log('Status:', response.status)
@@ -2170,7 +2470,18 @@ IState
       }
 
       const jobId = result.jobId
-      this.setState({ jobId, progress: 5 }) // Job submetido - 5%
+      jobIdAtMs = Date.now()
+      console.log('[TIMING] jobId recebido em', Math.round((jobIdAtMs - timingStartMs) / 1000), 's')
+      this.setState({
+        jobId,
+        progress: 5,
+        currentStatus: 'Análise submetida...',
+        jobStartTimeMs: Date.now(),
+        elapsedSeconds: 0,
+        totalTimeSeconds: null
+      })
+      this.lastStatusMessageBase = 'Análise submetida...'
+      this.startJobTimer()
 
       console.log('Job ID recebido:', jobId)
         
@@ -2179,7 +2490,7 @@ IState
       const maxAttempts = 120 // 2 minutos
         
         while (attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 2000)) // Verifica a cada 2 segundos
+        await new Promise(resolve => setTimeout(resolve, 1000)) // Verifica a cada 1 segundo
         attempts++
           
         const baseUrl = submitJobUrl.replace('/submitJob', '')
@@ -2188,6 +2499,10 @@ IState
             : `${baseUrl}/jobs/${jobId}?f=json`
           
           const statusResponse = await fetch(statusUrl)
+          if (firstStatusAtMs === null) {
+            firstStatusAtMs = Date.now()
+            console.log('[TIMING] 1º status do job em', Math.round((firstStatusAtMs - timingStartMs) / 1000), 's')
+          }
           
           if (!statusResponse.ok) {
             throw new Error(`Erro ao verificar status do job: ${statusResponse.status}`)
@@ -2195,16 +2510,86 @@ IState
           
         const jobStatus = await statusResponse.json()
           console.log(`Status do job (tentativa ${attempts}):`, jobStatus.jobStatus)
+
+          const jobStartTimeMs = this.state.jobStartTimeMs ?? Date.now()
+          const elapsedSeconds = Math.max(0, Math.floor((Date.now() - jobStartTimeMs) / 1000))
+          if (this.state.jobStartTimeMs === null) {
+            this.setState({ jobStartTimeMs })
+          }
+
+          // Captura a mensagem de status atual (não acumulado)
+          let currentStatusMessage: string | null = null
+          if (jobStatus.messages && Array.isArray(jobStatus.messages) && jobStatus.messages.length > 0) {
+            const statusMessages = jobStatus.messages
+              .filter((msg: any) => {
+                const type = msg.type || ''
+                const description = (msg.description || msg.message || '').trim()
+
+                if (type !== 'esriJobMessageTypeInformative') {
+                  return false
+                }
+
+                const genericMessages = [
+                  'submitted',
+                  'executing',
+                  'succeeded',
+                  'failed',
+                  'cancelled',
+                  'waiting',
+                  'new',
+                  'start time:',
+                  'succeeded at',
+                  'elapsed time:',
+                  'tool path',
+                  'parameters',
+                  'messages'
+                ]
+
+                const descLower = description.toLowerCase()
+                const isGeneric = genericMessages.some(generic => descLower.includes(generic))
+
+                return !isGeneric && description.length > 0
+              })
+              .map((msg: any) => (msg.description || msg.message || '').trim())
+              .filter((msg: string) => msg.length > 0)
+
+            if (statusMessages.length > 0) {
+              currentStatusMessage = statusMessages[statusMessages.length - 1]
+            }
+          }
+
+          if (!currentStatusMessage) {
+            const statusMap: { [key: string]: string } = {
+              esriJobSubmitted: 'Análise submetida...',
+              esriJobExecuting: 'Processando análise...',
+              esriJobSucceeded: 'Análise concluída',
+              esriJobFailed: 'Análise falhou',
+              esriJobCancelled: 'Análise cancelada',
+              esriJobWaiting: 'Aguardando processamento...',
+              esriJobNew: 'Nova análise...'
+            }
+            currentStatusMessage = statusMap[jobStatus.jobStatus] || `Status: ${jobStatus.jobStatus}`
+          }
+
+          this.lastStatusMessageBase = currentStatusMessage
+          const statusWithTimer = `${currentStatusMessage} (${elapsedSeconds}s)`
+          this.setState({ currentStatus: statusWithTimer, elapsedSeconds })
           
           // Calcula progresso baseado nas tentativas (5% a 95% durante polling)
           // O progresso aumenta gradualmente conforme as tentativas
           const progressPercent = Math.min(95, 5 + Math.floor((attempts / maxAttempts) * 90))
           this.setState({ progress: progressPercent })
+
+          if (jobStatus.jobStatus === 'esriJobExecuting' && firstExecutingAtMs === null) {
+            firstExecutingAtMs = Date.now()
+            console.log('[TIMING] job entrou em execução em', Math.round((firstExecutingAtMs - timingStartMs) / 1000), 's')
+          }
           
           if (jobStatus.jobStatus === 'esriJobSucceeded') {
             // Job completado - sempre vai para 100% quando completa
             // Não importa quantas tentativas foram necessárias
             console.log(`Job completado após ${attempts} tentativas. Atualizando para 100%`)
+            console.log('[TIMING] esriJobSucceeded em', Math.round((Date.now() - timingStartMs) / 1000), 's')
             
             // Anima o progresso até 100% (incrementa gradualmente se necessário)
             const currentProgress = this.state.progress
@@ -2232,8 +2617,17 @@ IState
             
             result = await resultResponse.json()
             console.log('Resultado da execução assíncrona:', result)
+            // Atualiza status para concluído com tempo total
+            const totalTimeSeconds = Math.max(0, Math.floor((Date.now() - jobStartTimeMs) / 1000))
+            this.stopJobTimer()
+            this.setState({
+              currentStatus: `Análise concluída com sucesso (tempo total: ${totalTimeSeconds}s)`,
+              totalTimeSeconds,
+              elapsedSeconds: totalTimeSeconds
+            })
             break
           } else if (jobStatus.jobStatus === 'esriJobFailed') {
+            this.stopJobTimer()
             // Extrai mensagens de erro mais detalhadas
             let errorMessage = 'Job falhou'
             if (jobStatus.messages && Array.isArray(jobStatus.messages)) {
@@ -2264,6 +2658,7 @@ IState
               throw new Error(`Job falhou: ${errorMessage}`)
             }
           } else if (jobStatus.jobStatus === 'esriJobCancelled') {
+            this.stopJobTimer()
             throw new Error('Job foi cancelado')
           }
           
@@ -2271,6 +2666,7 @@ IState
         }
         
         if (attempts >= maxAttempts) {
+        this.stopJobTimer()
         throw new Error('Timeout: O job demorou mais de 2 minutos para completar')
       }
 
@@ -2488,6 +2884,7 @@ IState
     } catch (error) {
       console.error('Erro ao executar análise:', error)
       alert(`Erro ao executar análise: ${error.message}\n\nVerifique o console (F12) para mais detalhes.`)
+      this.stopJobTimer()
       this.setState({ loading: false })
     }
   }
@@ -2739,13 +3136,26 @@ IState
             <label>
               {defaultMessages.areaPropostaDesenho}
             </label>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <button 
-              className="btn-secondary"
-              onClick={this.handleStartDrawing}
-              disabled={this.state.loading || this.state.drawingMode || !!this.state.shapefileGeometry}
+                className="btn-secondary"
+                onClick={this.handleStartDrawing}
+                disabled={this.state.loading || this.state.drawingMode || !!this.state.shapefileGeometry}
               >
-              {this.state.drawingMode ? 'Desenhando...' : defaultMessages.iniciarDesenho}
+                {this.state.drawingMode ? 'Desenhando...' : defaultMessages.iniciarDesenho}
               </button>
+              {this.state.drawnGeometry && (
+                <button
+                  className="btn-success"
+                  onClick={this.handleDownloadDrawnPolygon}
+                  disabled={this.state.loading}
+                  style={{ fontSize: '14px', padding: '8px 12px' }}
+                  title="Baixar polígono desenhado como shapefile"
+                >
+                  📥 Baixar Polígono
+                </button>
+              )}
+            </div>
             {this.state.drawingMode && (
               <div className="drawing-info">
                 Clique no mapa para começar a desenhar a área.
@@ -2753,7 +3163,7 @@ IState
             )}
             {this.state.drawnGeometry && (
               <div className="file-info" style={{ color: '#28a745' }}>
-                Área desenhada no mapa.
+                Área desenhada no mapa. O polígono permanece visível até limpar a análise.
               </div>
             )}
             {this.state.shapefileGeometry && (
@@ -2790,6 +3200,21 @@ IState
               {defaultMessages.baixarRelatorio}
             </button>
           </div>
+
+          {/* Status Atual do Processamento */}
+          {this.state.currentStatus && (
+            <div className="status-box" style={{
+              marginTop: '15px',
+              padding: '10px',
+              backgroundColor: '#f8f9fa',
+              border: '1px solid #dee2e6',
+              borderRadius: '4px',
+              fontSize: '14px',
+              color: '#495057'
+            }}>
+              <strong>Status:</strong> {this.state.currentStatus}
+            </div>
+          )}
 
           {/* Resumo da Análise */}
           {this.state.analysisResult && (
